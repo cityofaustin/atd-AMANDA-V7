@@ -1,0 +1,6 @@
+	      ,amanda.coa_gis_sync.get_start_date_fnc(f.folderrsn, f.foldertype, f.subcode) start_date
+	      ,amanda.coa_gis_sync.get_end_date_fnc(f.folderrsn, f.foldertype, f.subcode) end_date
+	      ,amanda.coa_gis_sync.get_changed_date_fnc(f.folderrsn) changed_date
+	      ,amanda.coa_gis_sync.get_manager_name_fnc(f.folderrsn) manager_name
+	      ,amanda.coa_gis_sync.get_manager_phone_fnc(f.folderrsn) manager_phone
+	      ,amanda.coa_gis_sync.get_manager_email_fnc(f.folderrsn) manager_email
