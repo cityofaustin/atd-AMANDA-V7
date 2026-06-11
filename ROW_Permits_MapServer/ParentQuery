@@ -1,1 +1,302 @@
-
+SELECT * FROM (
+SELECT
+   s.folderrsn,
+   s.propertyrsn,
+   s.propertyroll,
+   s.propertyname,
+   s.propstreet,
+   s.propstreettype,
+   s.propstreetprefix,
+   s.prophousenumeric,
+   s.parentrsn,
+   s.referencefile,
+   s.priority,
+   regexp_replace(substr(trim(s.foldername), 1, 255), '[^ -~|[:space:]]', '') foldername,
+   s.foldertype,
+   s.permit_type,
+   s.subcode,
+   s.foldersubtype,
+   s.workcode,
+   s.folderworktype,
+   s.statuscode,
+   s.folderstatus,
+   regexp_replace(substr(trim(s.folderdescription), 1, 999), '[^ -~|[:space:]]', '') folderdescription,
+   regexp_replace(substr(trim(s.foldercondition), 1, 999), '[^ -~|[:space:]]', '') foldercondition,
+   s.indate,
+   s.issuedate,
+   s.expirydate,
+   sd.infovaluedatetime start_date,
+   s.end_date,
+   s.changed_date,
+   esd.infovaluedatetime estimated_start_date,
+   ecd.infovaluedatetime estimated_completion_date,
+   xsd.infovaluedatetime extension_start_date,
+   xed.infovaluedatetime extension_end_date,
+   evsd.infovaluedatetime event_start_date,
+   eved.infovaluedatetime event_end_date,
+   esdt.infovaluedatetime event_start_date_and_time, 
+   eedt.infovaluedatetime event_end_date_and_time,
+   wzt.infovalue work_zone_type,
+   wztc.infovalue work_zone_type_comment,
+   s.manager_name,
+   s.manager_phone,
+   s.manager_email,
+   a.applicant_name,
+   a.applicant_email,
+   a.applicant_address,
+   a.applicant_phone,
+   cr.contractor_name,
+   cr.contractor_email,
+   cr.contractor_address,
+   cr.contractor_phone,
+   ct.contact_name,
+   ct.contact_email,
+   ct.contact_address,
+   ct.contact_phone
+  FROM (
+    SELECT v.folderrsn
+        ,p.propertyrsn
+        ,p.propertyroll
+        ,p.propertyname
+        ,p.propstreet
+        ,p.propstreettype
+        ,p.propstreetprefix
+        ,p.prophousenumeric
+        ,v.parentrsn
+        ,v.referencefile
+        ,v.priority
+        ,v.foldername
+        ,v.foldertype
+        ,v.permit_type
+        ,v.subcode
+        ,v.foldersubtype
+        ,v.workcode
+        ,v.folderworktype
+        ,v.statuscode
+        ,v.folderstatus
+        ,v.folderdescription
+        ,v.foldercondition
+        ,v.indate
+        ,v.issuedate
+        ,v.expirydate
+        ,v.start_date
+        ,v.end_date
+        ,v.changed_date
+        ,v.manager_name
+        ,v.manager_phone
+        ,v.manager_email
+    FROM property p
+   INNER JOIN folderproperty fp
+      ON (p.propertyrsn = fp.propertyrsn)
+   INNER JOIN (
+       SELECT f.folderrsn
+        ,f.parentrsn
+        ,f.referencefile
+        ,f.priority
+        ,f.foldername
+        ,f.foldertype
+        ,amanda.coa_gis_sync.get_permit_type_fnc(f.folderrsn) permit_type
+        ,f.subcode
+        ,vs.subdesc foldersubtype
+        ,f.workcode
+        ,vw.workdesc folderworktype
+        ,f.statuscode
+        ,vst.statusdesc folderstatus
+        ,f.folderdescription
+        ,f.foldercondition
+        ,trunc(f.indate) indate
+        ,trunc(f.issuedate) issuedate
+        ,trunc(f.expirydate) expirydate
+        ,amanda.coa_gis_sync.get_start_date_fnc(f.folderrsn, f.foldertype, f.subcode) start_date
+        ,amanda.coa_gis_sync.get_end_date_fnc(f.folderrsn, f.foldertype, f.subcode) end_date
+        ,amanda.coa_gis_sync.get_changed_date_fnc(f.folderrsn) changed_date
+        ,amanda.coa_gis_sync.get_manager_name_fnc(f.folderrsn) manager_name
+        ,amanda.coa_gis_sync.get_manager_phone_fnc(f.folderrsn) manager_phone
+        ,amanda.coa_gis_sync.get_manager_email_fnc(f.folderrsn) manager_email
+    FROM folder f
+    LEFT OUTER JOIN validstatus vst
+      ON (vst.statuscode = f.statuscode)
+    LEFT OUTER JOIN validsub vs
+      ON (vs.subcode = f.subcode)
+    LEFT OUTER JOIN validwork vw
+      ON (vw.workcode = f.workcode)
+    WHERE f.foldertype IN ('ECV', 'EX', 'UC', 'RW', 'DS', 'SCP', 'LM', 'SE', 'PSM', 'GP')
+   ) v
+      ON (v.folderrsn = fp.folderrsn)
+   WHERE fp.propertyrsn > 0
+  ) s
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 76110 -- ESTIMATED_START_DATE
+   ) t
+   WHERE seqnum = 1
+) esd ON esd.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime desc) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 76115 -- ESTIMATED_COMPLETION_DATE
+   ) t
+   WHERE seqnum = 1
+) ecd ON ecd.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 75993 -- EXTENSION_START_DATE
+   ) t
+   WHERE seqnum = 1
+) xsd ON xsd.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime desc) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 75994 -- EXTENSION_END_DATE
+   ) t
+   WHERE seqnum = 1
+) xed ON xed.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 75980 -- EVENT_START_DATE
+   ) t
+   WHERE seqnum = 1
+) evsd ON evsd.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime desc) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 75985 -- EVENT_END_DATE
+   ) t
+   WHERE seqnum = 1
+) eved ON eved.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 75986 -- EVENT_START_DATE_AND_TIME
+   ) t
+   WHERE seqnum = 1
+) esdt ON esdt.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime desc) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 75987 -- EVENT_END_DATE_AND_TIME
+   ) t
+   WHERE seqnum = 1
+) eedt ON eedt.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovaluedatetime,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by infovaluedatetime) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 75605 -- START_DATE
+   ) t
+   WHERE seqnum = 1
+) sd ON sd.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovalue,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by stampdate DESC) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 50395 -- WORK_ZONE_TYPE
+   ) t
+   WHERE seqnum = 1
+) wzt ON wzt.folderrsn = s.folderrsn
+LEFT JOIN (
+  SELECT
+    t.* FROM (
+    SELECT
+      fi.infovalue,
+        fi.folderrsn,
+        row_number() over (partition by folderrsn order by stampdate DESC) as seqnum
+    FROM AMANDA.folderinfo fi
+    WHERE fi.infocode = 50396 -- WORK_ZONE_TYPE_COMMENT
+   ) t
+   WHERE seqnum = 1
+) wztc ON wztc.folderrsn = s.folderrsn
+LEFT JOIN (
+   select t.*
+   from (
+       select
+       folderrsn,
+       applicant_name,
+       applicant_email,
+       applicant_address,
+       applicant_phone,
+       row_number() over (partition by folderrsn order by peoplersn) as seqnum
+       from amanda.row_permit_applicant_vw t
+   ) t
+   where seqnum = 1
+) a ON (a.folderrsn = s.folderrsn)
+LEFT JOIN (
+   select t.*
+   from (
+       select
+       folderrsn,
+       contractor_name,
+       contractor_email,
+       contractor_address,
+       contractor_phone,
+       row_number() over (partition by folderrsn order by peoplersn) as seqnum
+       from amanda.row_permit_contractor_vw t
+   ) t
+   where seqnum = 1
+) cr ON (cr.folderrsn = s.folderrsn)
+LEFT JOIN (
+   select t.*
+   from (
+       select
+       folderrsn,
+       contact_name,
+       contact_email,
+       contact_address,
+       contact_phone,
+       row_number() over (partition by folderrsn order by peoplersn) as seqnum
+       from amanda.row_permit_contact_vw t
+   ) t
+   where seqnum = 1
+) ct ON (ct.folderrsn = s.folderrsn)
+)
