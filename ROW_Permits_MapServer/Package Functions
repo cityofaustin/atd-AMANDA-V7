@@ -4,3 +4,6 @@
 	      ,amanda.coa_gis_sync.get_manager_name_fnc(f.folderrsn) manager_name
 	      ,amanda.coa_gis_sync.get_manager_phone_fnc(f.folderrsn) manager_phone
 	      ,amanda.coa_gis_sync.get_manager_email_fnc(f.folderrsn) manager_email
+
+-- comment lines added by Subha
+-- 2nd comment line by Subha
