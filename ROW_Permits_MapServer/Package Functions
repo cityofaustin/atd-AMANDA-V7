@@ -5,5 +5,251 @@
 	      ,amanda.coa_gis_sync.get_manager_phone_fnc(f.folderrsn) manager_phone
 	      ,amanda.coa_gis_sync.get_manager_email_fnc(f.folderrsn) manager_email
 
--- comment lines added by Subha
--- 2nd comment line by Subha
+*******************************************************************************************************
+Following are the functions from Amanda.coa_gis_sync package:
+*******************************************************************************************************
+ FUNCTION get_start_date_fnc(an_folderrsn  IN INTEGER,
+                               av_foldertype IN VARCHAR2,
+                               an_subcode IN INTEGER)
+      RETURN DATE IS
+
+      ld_start_date DATE;
+      ln_infocode INTEGER;
+
+   BEGIN
+
+      IF av_foldertype = 'EX' THEN
+         ln_infocode := 76110;
+         ld_start_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+
+      ELSIF av_foldertype = 'UC' THEN
+         ln_infocode := 76110;
+         ld_start_date := get_date_infovalue_fnc(an_folderrsn,ln_infocode);
+      ELSIF av_foldertype = ('DS') THEN
+         ld_start_date := get_issue_date_fnc(an_folderrsn);
+
+      ELSIF av_foldertype = ('LM') THEN
+         ld_start_date := get_indate_fnc(an_folderrsn);
+
+      ELSIF av_foldertype = 'SE' THEN
+         ln_infocode := 75980;
+          ld_start_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+      ELSIF av_foldertype IN ('ECV', 'GP') THEN
+         ld_start_date := SYSDATE;
+
+      ELSIF av_foldertype = 'RW' THEN
+         IF an_subcode IN (50500, 50005, 50520) THEN
+            ln_infocode := 75980;
+            ld_start_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+
+         ELSIF an_subcode = 50510 THEN
+            ln_infocode := 75986;
+            ld_start_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+
+         ELSIF an_subcode IN (50525, 50530, 50535) THEN
+            ld_start_date := get_issue_date_fnc(an_folderrsn);
+
+         ELSIF an_subcode IN (50505) THEN
+            ln_infocode := 75605;
+            ld_start_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+
+         END IF;
+      END IF;
+
+      RETURN ld_start_date;
+   END get_start_date_fnc;
+-----------------------------------------------------------------------------------------------------
+   FUNCTION get_end_date_fnc(an_folderrsn  IN INTEGER,
+                             av_foldertype IN VARCHAR2,
+                             an_subcode IN INTEGER)
+      RETURN DATE IS
+
+      ld_end_date DATE;
+      ln_infocode INTEGER;
+      ln_number_of_days NUMBER;
+
+   BEGIN -- EX 76115   RW 75985
+
+      IF av_foldertype = 'EX' THEN
+         ln_infocode := 76115;
+         ld_end_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+
+      ELSIF av_foldertype = 'UC' THEN
+         ln_infocode := 76115;
+         ld_end_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+
+      ELSIF av_foldertype = 'DS' THEN
+         ld_end_date := get_expiry_date_fnc(an_folderrsn);
+
+      ELSIF av_foldertype = 'LM' THEN
+         ld_end_date := get_indate_fnc(an_folderrsn) + 365;
+
+      ELSIF av_foldertype = 'SE' THEN
+         ln_infocode := 75985;
+         ld_end_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+		 
+      ELSIF av_foldertype IN ('ECV', 'GP') THEN
+         ld_end_date := SYSDATE + 365;
+
+      ELSIF av_foldertype = 'RW' THEN
+         IF an_subcode IN (50500, 50005, 50520) THEN
+            ln_infocode := 75985;
+            ld_end_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+
+         ELSIF an_subcode = 50510 THEN
+            ln_infocode := 75987;
+            ld_end_date := get_date_infovalue_fnc(an_folderrsn, ln_infocode);
+
+         ELSIF an_subcode IN (50525, 50530, 50535) THEN
+            ld_end_date := get_expiry_date_fnc(an_folderrsn);
+
+         ELSIF an_subcode IN (50505) THEN
+            ln_infocode := 75605;
+            ln_number_of_days := get_number_infovalue_fnc(an_folderrsn, 75640);
+            ld_end_date := get_expiry_date_fnc(an_folderrsn);
+
+            IF ld_end_date IS NULL THEN
+               ld_end_date := get_date_infovalue_fnc(an_folderrsn,ln_infocode) + ln_number_of_days;
+
+            END IF;
+         END IF;
+      END IF;
+
+      RETURN ld_end_date;
+   END get_end_date_fnc;
+-----------------------------------------------------------------------------------------------------
+   FUNCTION get_changed_date_fnc(an_folderrsn IN INTEGER) RETURN DATE IS
+
+      ld_change_date DATE;
+
+      CURSOR cur_folder(cn_folderrsn IN INTEGER) IS
+         SELECT MAX(x.change_date) changed_date
+           FROM (SELECT f1.indate change_date
+                   FROM folder f1
+                  WHERE f1.folderrsn = cn_folderrsn
+                 UNION ALL
+                 SELECT f1.stampdate change_date
+                   FROM folder f1
+                  WHERE f1.folderrsn = cn_folderrsn
+                 UNION ALL
+                 SELECT fi.stampdate change_date
+                   FROM folderinfo fi
+                  WHERE fi.folderrsn = cn_folderrsn
+                 UNION ALL
+                 SELECT l1.logdate change_date
+                   FROM logfolderproperty l1
+                  WHERE l1.folderrsn = cn_folderrsn
+                 UNION ALL
+                 SELECT fp.stampdate change_date
+                   FROM folderproperty fp
+                  WHERE fp.folderrsn = cn_folderrsn
+                 UNION ALL
+                 SELECT lp1.logdate change_date
+                   FROM logfolderpeople lp1
+                  WHERE lp1.folderrsn = cn_folderrsn
+                 UNION ALL
+                 SELECT fpl.stampdate change_date
+                   FROM folderpeople fpl
+                  WHERE fpl.folderrsn = cn_folderrsn) x;
+
+      rec_folder cur_folder%ROWTYPE;
+
+   BEGIN
+
+      OPEN cur_folder(an_folderrsn);
+      FETCH cur_folder
+         INTO rec_folder;
+      IF cur_folder%FOUND THEN
+         ld_change_date := rec_folder.changed_date;
+
+      ELSE
+         ld_change_date := SYSDATE - 90;
+
+      END IF;
+      CLOSE cur_folder;
+
+      RETURN ld_change_date;
+   END get_changed_date_fnc;
+-----------------------------------------------------------------------------------------------------
+   FUNCTION get_manager_name_fnc(an_folderrsn IN INTEGER)
+      RETURN VARCHAR2
+   IS
+   
+      CURSOR cur_name(cn_folderrsn IN NUMBER) IS
+      SELECT rtrim((namelast || ', ' || namefirst),',')  manager_name
+        FROM amanda_folderpeople_vw
+      WHERE folderrsn = cn_folderrsn
+        AND peoplecode IN (52050, 64065);
+      
+      rec_name  cur_name%ROWTYPE; 
+      lv_name VARCHAR2(500);
+      
+   BEGIN
+   
+      lv_name := NULL;
+      
+      OPEN cur_name(an_folderrsn);
+      FETCH cur_name INTO rec_name;
+	  
+        IF cur_name%FOUND THEN
+           lv_name := rec_name.manager_name;        
+        END IF;
+      CLOSE cur_name;
+   
+      RETURN lv_name;    
+   END get_manager_name_fnc;
+-----------------------------------------------------------------------------------------------------
+   FUNCTION get_manager_phone_fnc(an_folderrsn IN INTEGER)
+      RETURN VARCHAR2
+   IS
+   
+      CURSOR cur_phone(cn_folderrsn IN NUMBER) IS
+      SELECT phone1
+        FROM amanda_folderpeople_vw
+      WHERE folderrsn = cn_folderrsn
+        AND peoplecode IN (52050, 64065);
+      
+      rec_phone  cur_phone%ROWTYPE;     
+      lv_phone VARCHAR2(500);
+      
+   BEGIN
+   
+      lv_phone := NULL;
+      
+      OPEN cur_phone(an_folderrsn);
+      FETCH cur_phone INTO rec_phone;
+         IF cur_phone%FOUND THEN     
+            lv_phone := rec_phone.phone1;
+         END IF;
+      CLOSE cur_phone;
+   
+      RETURN lv_phone;    
+   END get_manager_phone_fnc;
+-----------------------------------------------------------------------------------------------------
+  FUNCTION get_manager_email_fnc(an_folderrsn IN INTEGER)
+      RETURN VARCHAR2
+   IS
+   
+      CURSOR cur_email(cn_folderrsn IN NUMBER) IS
+      SELECT emailaddress
+        FROM amanda_folderpeople_vw
+      WHERE folderrsn = cn_folderrsn
+        AND peoplecode IN (52050, 64065);
+      
+      rec_email  cur_email%ROWTYPE;     
+      lv_email VARCHAR2(500);
+      
+   BEGIN
+   
+      lv_email := NULL;
+      
+      OPEN cur_email(an_folderrsn);
+      FETCH cur_email INTO rec_email;
+         IF cur_email%FOUND THEN
+            lv_email := rec_email.emailaddress;
+         END IF;
+      CLOSE cur_email;
+   
+      RETURN lv_email;  
+   END get_manager_email_fnc;
+-----------------------------------------------------------------------------------------------------
